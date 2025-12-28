@@ -74,37 +74,6 @@ Each element should be a valid YAML string."
   :type '(repeat string)
   :group 'emacs-clangd-gen)
 
-;; (defvar rejected-compiler-flags '("-fmacro-prefix-map*"
-;;                                  "-fno-shrink-wrap"
-;;                                  "-fno-tree-switch-conversion"
-;;                                  "-fstrict-volatile-bitfields"
-;;                                  "-march=*"
-;;                                  "-mabi=*"))
-
-;; (defvar added-compiler-flags '("--target=riscv32-esp-elf"))
-
-;; (defvar additional-clangd-config '(
-;; "Diagnostics:
-;;    UnusedIncludes: Strict
-;;    MissingIncludes: Strict
-;;    ClangTidy:
-;;      Add:
-;;        - modernize*
-;;        - bugprone-*
-;;        - performance-*
-;;        - readability-braces-around-statements
-;;        - readability-simplify-boolean-expr
-;;      Remove:
-;;        - modernize-use-trailing-return-type
-;;        - performance-no-int-to-ptr
-;; "
-;; "Completion:
-;;   AllScopes: Yes
-;;   ArgumentLists: FullPlaceholders
-;;   HeaderInsertion: IWYU
-;;   CodePatterns: All
-;; "
-;; ))
 
 
 (defun write-clangd-yaml (project-path includes-list list-of-remove-flags added-compiler-flags)
