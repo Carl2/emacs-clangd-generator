@@ -1,0 +1,209 @@
+#+TITLE: Emacs Clangd Generator
+#+AUTHOR: Calle Olsen
+#+DATE: <2023-10-27 Fri>
+
+* Table of Contents                                        :TOC_4:
+- [[#overview][Overview]]
+- [[#features][Features]]
+- [[#installation][Installation]]
+  - [[#manual-installation][Manual Installation]]
+- [[#usage][Usage]]
+  - [[#basic-usage][Basic Usage]]
+  - [[#customization][Customization]]
+    - [[#excluding-compiler-flags][Excluding Compiler Flags]]
+    - [[#adding-compiler-flags][Adding Compiler Flags]]
+    - [[#custom-clangd-configuration][Custom Clangd Configuration]]
+- [[#example-esp-idf-project][Example: ESP-IDF Project]]
+- [[#known-issues-and-limitations][Known Issues and Limitations]]
+- [[#contributing][Contributing]]
+- [[#license][License]]
+
+* Overview
+
+`emacs-clangd-gen.el` is an Emacs Lisp package designed to simplify the setup of `clangd` for C/C++ projects, especially in environments involving cross-compilation like ESP-IDF. It automatically generates a project-specific `.clangd` configuration file by:
+
+1. Discovering the implicit include paths used by your chosen compiler.
+2. Allowing you to specify compiler flags to be excluded from the `clangd` configuration (e.g., flags that `clangd` doesn't understand or that cause issues).
+3. Allowing you to specify additional compiler flags for `clangd` (e.g., target architecture flags for cross-compilation).
+4. Enabling the inclusion of custom `clangd` settings, such as `clang-tidy` rules and completion behaviors.
+
+This package aims to provide a quick and convenient way to get `clangd` running effectively with minimal manual configuration, improving the C/C++ development experience within Emacs.
+
+* Features
+
+- **Automated Include Path Discovery**: Automatically finds compiler-specific include paths by querying the specified compiler.
+- **Compiler Flag Filtering**: Define a list of compiler flags to be removed from the `clangd` configuration, addressing common incompatibilities.
+- **Additional Compiler Flag Injection**: Add custom compiler flags essential for `clangd` to correctly parse code, particularly useful for cross-compilation.
+- **Extensible Clangd Configuration**: Easily integrate custom `clangd` YAML configurations (e.g., for diagnostics, `clang-tidy`, completion settings).
+- **Project-Specific Configuration**: Generates a `.clangd` file in the project root, ensuring configuration is localized and version-controllable.
+
+* Installation
+
+**Prerequisites:**
+- Emacs 27.1+
+- `s.el` library (available on MELPA)
+- `clangd` executable in your system's PATH.
+- A C/C++ compiler (e.g., `gcc`, `clang`, or a cross-compiler like `riscv32-esp-elf-gcc`).
+
+***
+You need to install =s.el= This is usually done by:
+#+begin_src elisp
+M-x package-refresh-contents
+M-x package-install RET s RET
+#+end_src
+***
+
+**Emacs Configuration:**
+
+Add the following to your Emacs configuration (e.g., `init.el`):
+
+#+begin_src emacs-lisp
+;; This is mainly for manual installations.
+;; If you install from a package manager, it will handle the autoloading.
+(add-to-list 'load-path "/path/to/emacs-clangd-gen") ; Adjust this path
+(require 'emacs-clangd-gen)
+#+end_src
+
+**From MELPA (Recommended):**
+
+Not yet available on MELPA. In the meantime, use manual installation.
+
+**Manual Installation:**
+
+1. Download `emacs-clangd-gen.el` and place it in a directory on your `load-path` (e.g., `~/.emacs.d/lisp/`).
+2. Add the `(require 'emacs-clangd-gen)` line to your Emacs configuration as shown above.
+
+* Usage
+
+**Basic Usage:**
+
+The core function is `emacs-clangd-generator`. It is an interactive function that prompts you for the project root and the compiler executable to use.
+
+1. Navigate to your project directory in Emacs, or open any file within it.
+2. Call the function:
+   #+begin_src elisp
+   M-x emacs-clangd-generator
+   #+end_src
+3. Emacs will prompt you for:
+   - *Project root*: Enter the absolute path to your project's root directory. (e.g. ~/projects/my-esp32-project)
+   - *Compiler*: Enter the name of the compiler executable you want to use (e.g., `gcc`, `clang`, `riscv32-esp-elf-gcc`). Make sure this compiler is in your system's PATH.
+
+After execution, a `.clangd` file will be created in your specified project root, containing the discovered include paths and any custom configurations. `clangd` should then automatically pick up this configuration when you open C/C++ files within that project.
+
+**Customization:**
+
+The package defines several `defcustom` variables, allowing you to tailor the generated `.clangd` configuration to your needs. These can be customized using `M-x customize-group RET emacs-clangd-gen RET` or by setting them directly in your `init.el`.
+
+**Excluding Compiler Flags:**
+
+Some compiler flags, especially those from cross-compilers, might not be understood by `clangd` and can cause errors or warnings. You can specify a list of such flags to be removed. Wildcards (`*`) are supported.
+
+#+begin_src emacs-lisp
+(setq emacs-clangd-gen-rejected-compiler-flags
+      '("-fmacro-prefix-map*"
+        "-fno-shrink-wrap"
+        "-fno-tree-switch-conversion"
+        "-fstrict-volatile-bitfields"
+        "-march=*"
+        "-mabi=*"
+        ;; Add any other flags you want to exclude
+        "-mthumb"
+        "-mlong-calls"))
+#+end_src
+
+**Adding Compiler Flags:**
+
+You can add additional flags that `clangd` needs to correctly understand your project, such as target architecture flags for cross-compilation.
+
+#+begin_src emacs-lisp
+(setq emacs-clangd-gen-added-compiler-flags
+      '("--target=riscv32-esp-elf"
+        ;; Add other necessary target or sysroot flags
+        "--sysroot=/path/to/your/sdk/sysroot"))
+#+end_src
+
+**Custom Clangd Configuration:**
+
+You can insert arbitrary YAML configuration blocks into the `.clangd` file. This is useful for `clang-tidy` settings, completion preferences, and other `clangd` features. Each element in the list should be a valid YAML string block.
+
+#+begin_src emacs-lisp
+(setq emacs-clangd-gen-additional-clangd-config
+      '("Diagnostics:
+   UnusedIncludes: Strict
+   MissingIncludes: Strict
+   ClangTidy:
+     Add:
+       - modernize*
+       - bugprone-*
+       - performance-*
+       - readability-braces-around-statements
+       - readability-simplify-boolean-expr
+     Remove:
+       - modernize-use-trailing-return-type
+       - performance-no-int-to-ptr
+"
+        "Completion:
+  AllScopes: Yes
+  ArgumentLists: FullPlaceholders
+  HeaderInsertion: IWYU
+  CodePatterns: All
+"
+        ;; Another example, setting a path for compile_commands.json if needed
+        ;; "CompileFlags:
+        ;;   CompilationDatabase: compile_commands.json"
+        ))
+#+end_src
+
+* Example: ESP-IDF Project
+
+Lets say you have an ESP-IDF project at `~/esp/esp-idf-project`. You are using the ESP-IDF toolchain which includes a compiler like `riscv32-esp-elf-gcc`.
+
+1. **Customize:** Set your Emacs variables (e.g., in `init.el`):
+
+   #+begin_src emacs-lisp
+   (setq emacs-clangd-gen-rejected-compiler-flags
+         '("-fmacro-prefix-map*"
+           "-fno-shrink-wrap"
+           "-fno-tree-switch-conversion"
+           "-fstrict-volatile-bitfields"
+           "-march=*"
+           "-mabi=*"
+           "-mlong-calls"
+           "-falign-labels=0"
+           ;; ... add other ESP-IDF specific flags that clangd doesn't like
+           ))
+
+   (setq emacs-clangd-gen-added-compiler-flags
+         '("--target=riscv32-esp-elf"
+           ;; Ensure these match your ESP-IDF setup.
+           ;; You often need a sysroot for header discovery.
+           ;; For ESP-IDF, you might need to find the exact sysroot path.
+           ;; A common pattern is `<your-esp-idf-path>/tools/xtensa-esp32-elf/esp-2021r2-8.4.0/xtensa-esp32-elf/sysroot`
+           ;; or similar for riscv.
+           "--sysroot=/home/user/esp/esp-idf/components/esp_rom/include" ; Example
+           ))
+   #+end_src
+
+2. **Run Generator:**
+   #+begin_src elisp
+   M-x emacs-clangd-generator
+   #+end_src
+   - When prompted for "Project root:", enter `/home/user/esp/esp-idf-project/`
+   - When prompted for "Compiler:", enter `riscv32-esp-elf-gcc` (or `xtensa-esp32-elf-gcc` for ESP32).
+
+3. A `.clangd` file will be generated in `~/esp/esp-idf-project/.clangd`, containing relevant include paths and your specified flags. `clangd` should now provide better insights for your ESP-IDF code.
+
+* Known Issues and Limitations
+
+- **Compiler Path Discovery**: The package relies on `executable-find` to locate the compiler. Ensure your compiler executable is in your system's `PATH`. If you're using a specific toolchain not in `PATH`, you might need to launch Emacs from an environment where that toolchain is accessible or provide its absolute path during the prompt (though `executable-find` will still search `PATH`).
+- **Complex Build Systems**: This generator provides a good starting point but might not fully cover highly complex build systems (e.g., those with intricate preprocessor definitions, generated headers, or distributed build setups). For these, generating a `compile_commands.json` (e.g., using `cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ...` or `bear`) is often more robust, which can then be referenced in the `emacs-clangd-gen-additional-clangd-config`.
+- **Cross-Compiler Sysroot**: Automatically discovering the *correct* `--sysroot` for all cross-compilers can be challenging. You might need to manually add `--sysroot` with the correct path to `emacs-clangd-gen-added-compiler-flags`.
+- **Wildcard Matching**: Wildcard matching (`*`) for rejected flags is a basic string match and might not cover all advanced regex patterns.
+
+* Contributing
+
+Contributions are welcome! If you have suggestions, bug reports, or want to add new features, please open an issue or submit a pull request on the [[https://github.com/your-username/emacs-clangd-gen][GitHub repository]].
+
+* License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
