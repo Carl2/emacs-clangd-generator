@@ -92,7 +92,7 @@ Each element should be a valid YAML string."
         (dolist (remove-flag list-of-remove-flags)
           (insert (format "    \"%s\",\n" remove-flag)))
         (insert "  ]\n" ))
-      (dolist (addition additional-clangd-config)
+      (dolist (addition emacs-clangd-gen-additional-clangd-config)
         (insert (format "%s\n" addition))
         )
       ))
@@ -135,7 +135,9 @@ Each element should be a valid YAML string."
          (implicit-includes (find-implicit-compile-includes compiler))
 
          )
-    (write-clangd-yaml project-root implicit-includes rejected-compiler-flags added-compiler-flags)
+    (write-clangd-yaml project-root implicit-includes
+                       emacs-clangd-gen-rejected-compiler-flags
+                       emacs-clangd-gen-added-compiler-flags)
     ))
 
 
